@@ -9,7 +9,7 @@ import time
 
 from pubsub import pub
 
-from operators import Count
+from operators import Count, Max
 from ra import ReactiveAggregator
 
 
@@ -65,7 +65,28 @@ def simple_callback(event):
 if __name__ == '__main__':
     pub.subscribe(simple_callback, 'base')
     # operator = ArgMax(arg='id', max_over='value')
-    operator = Count()
+    operator = Max(max_over='value')
     ra = ReactiveAggregator(timedelta(seconds=10), timedelta(seconds=1), 'base', operator)
     ra.run()
-    InputStreamGenerator('base', incremental_event).start()
+    # InputStreamGenerator('base', incremental_event).start()
+    pub.sendMessage('windowInsert', event={'value': 0})
+    pub.sendMessage('windowInsert', event={'value': 1})
+    pub.sendMessage('windowInsert', event={'value': 2})
+    pub.sendMessage('windowInsert', event={'value': 3})
+    pub.sendMessage('windowInsert', event={'value': 4})
+    pub.sendMessage('windowInsert', event={'value': 5})
+    pub.sendMessage('windowInsert', event={'value': 6})
+    pub.sendMessage('windowInsert', event={'value': 7})
+    pub.sendMessage('windowTrigger')
+    print(ra.tree.data)
+    pub.sendMessage('windowEvict', event={'value': 2})
+    pub.sendMessage('windowEvict', event={'value': 3})
+    pub.sendMessage('windowEvict', event={'value': 4})
+    pub.sendMessage('windowEvict', event={'value': 5})
+    pub.sendMessage('windowTrigger')
+    print(ra.tree.data)
+    pub.sendMessage('windowInsert', event={'value': 8})
+    pub.sendMessage('windowInsert', event={'value': 9})
+    pub.sendMessage('windowInsert', event={'value': 10})
+    pub.sendMessage('windowTrigger')
+    print(ra.tree.data)

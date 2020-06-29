@@ -36,3 +36,23 @@ class Count(Operator):
     def lower(self, agg):
         """The final value is simply the last running count."""
         return agg
+
+
+class Max(Operator):
+    """."""
+    NAME = 'MAX'
+
+    def __init__(self, max_over):
+        self.max_over = max_over
+
+    def lift(self, event):
+        """."""
+        return event[self.max_over]
+
+    def combine(self, agg1, agg2):
+        """."""
+        return max(agg1, agg2)
+
+    def lower(self, agg):
+        """The final value is simply the last running max."""
+        return agg

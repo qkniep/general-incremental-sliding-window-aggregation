@@ -30,7 +30,7 @@ class ReactiveAggregator(Thread):
 
         self.operator = operator
 
-        self.tree = FlatFAT([None] * 2, self.operator)
+        self.tree = FlatFAT([None] * 4, self.operator)
         self.tree_changes = []
         self.buffer_front = 0
         self.buffer_back = 0
@@ -50,18 +50,20 @@ class ReactiveAggregator(Thread):
 
     def on_evict(self, event):  # TODO: change to support non-FIFO windows
         """Handles a window evict event by removing the event from the circular buffer."""
-        if self.num_tuples < self.tree.capacity() // 4:
-            self.tree.resize(self.tree.capacity() // 2, False)
+        # TODO: put this back in once resize works with shrinking
+        # if self.num_tuples < self.tree.capacity() // 4:
+        #     self.tree.resize(self.tree.capacity() // 2)
 
-        # TODO: maybe replace this with lookup table (window.event_id -> flatfat.index)
-        '''
+        # TODO: replace this with lookup table (window.event_id -> flatfat.index)
         index = self.tree.find_leaf(self.operator.lift(event))
-        self.tree_changes.append((index, None))
+        if index == -1:
+            print('FUCK')
+        # self.tree_changes.append((index, None))
+        self.tree.update([(index, None)])
         if index == self.buffer_front:
             self.buffer_front += 1
             self.buffer_front %= self.tree.capacity()
         self.num_tuples -= 1
-        '''
 
     def on_trigger(self):
         """Handles a window trigger event by computing the current aggregate."""
@@ -79,8 +81,9 @@ class ReactiveAggregator(Thread):
         """
         if self.num_tuples == 0 or self.buffer_front != self.buffer_back:
             return  # buffer is not full
-        # if self.num_tuples <= self.tree.capacity() * 3 // 4:
-        #    self.tree.compact()
-        # else:
-        self.buffer_back = self.tree.capacity()
-        self.tree.resize(self.tree.capacity() * 2)
+        if self.num_tuples <= self.tree.capacity() * 3 // 4:
+            self.tree.compact()
+            self.buffer_back = (self.buffer_front + self.num_tuples) % self.tree.capacity()
+        else:
+            self.buffer_back = self.tree.capacity()
+            self.tree.resize(self.tree.capacity() * 2)
