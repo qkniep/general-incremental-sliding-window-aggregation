@@ -1,55 +1,71 @@
-from FlatFAT import FlatFAT
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""."""
+
+from datetime import timedelta
+import random
+from threading import Thread
+import time
+
+from pubsub import pub
+
+from operators import Count
+from ra import ReactiveAggregator
 
 
-def main():
-    init_values = [
-                   (3, 4, 7, "hello", 543.42342), (6, 2, 3, "test", 74.234),
-                   (8, 1, 3, "lallla", 7632345), (5, 3, 2, "stuff", 43151),
-                   (1, 4, 1, "more stuff", 724616),
-                   (4, 1, 932, "even more stuff", 14316464)
-                  ]
-    a = FlatFAT(init_values, "operator")
+class InputStreamGenerator(Thread):
+    """A thread that periodically emits events from an event generator function.
+    These events are published into a pubsub topic, for other threads to subscribe to.
+    """
 
-    print("original tree: ", a.tree)
-    print()
+    def __init__(self, topic, event_generator):
+        """Creates a new event stream based on a publishing topic and event generator function."""
+        super().__init__()
+        self.topic = topic
+        self.generate_new_event = event_generator
 
-    update_values = [(9, (4, 17, "update 1", 68732)),
-                     (3, (9, 11, "update 2", 463824)), (2, (None))]
-    a.update(update_values)
-    print("updated tree: ", a.tree)
-    print()
+    def run(self):  # called by Thread.start()
+        """The thread runs for as long as the generator emits new events.
+        After publishing an event the thread sleeps for 100 ms.
+        """
+        for event in self.generate_new_event():
+            pub.sendMessage(self.topic, event=event)
+            time.sleep(0.1)
 
-    update_values_2 = [(81, (34, 854, "delete test", 563782))]
-    a.update(update_values_2)
-    print(a.tree)
-    print()
 
-    update_values_3 = [(81, (None))]
-    a.update(update_values_3)
-    print(a.tree)
+def random_event():
+    """Yields an infinite stream of random independent events."""
+    while True:
+        yield ({
+            'id': random.randint(0, 1000),
+            'value': random.randint(0, 1000),
+            'hash': random.getrandbits(128),
+            'category': random.randint(0, 10),
+        }, time.time())
 
-    update_values_4 = [(9, (None))]
-    a.update(update_values_4)
-    print(a.tree)
 
-    ########################################################################
-    # update intermediate states (OLD)
-    #
-    # for i in range(0, len(value)):
-    #     location = self.size - self.capacity + value[i][0]
-    #     parent_node = self.__getParent(location)
-    #     # follow path until parent is bigger, or until root
-    #     while(self.__combine(self.tree[location], self.tree[parent_node])
-    #             == self.tree[location] and location > 0):
-    #         combine_result = self.__combine(self.tree[location],
-    #                                       self.tree[parent_node])
-    #         if combine_result == self.tree[location]:
-    #             self.tree[parent_node] = combine_result
-    #
-    #         old_parent = parent_node
-    #         parent_node = self.__getParent(old_parent)
-    #         location = old_parent
-    #
-    ########################################################################
+def incremental_event():
+    """Yields an infinite stream of events with monotonically increasing values."""
+    value = 0
+    while True:
+        value += random.randint(0, 5)
+        yield ({
+            'id': random.randint(0, 1000),
+            'value': value,
+            'hash': random.getrandbits(128),
+            'category': random.randint(0, 10),
+        }, time.time())
 
-main()
+
+def simple_callback(event):
+    """."""
+    print('[ECHO]:', event)
+
+
+if __name__ == '__main__':
+    pub.subscribe(simple_callback, 'base')
+    # operator = ArgMax(arg='id', max_over='value')
+    operator = Count()
+    ra = ReactiveAggregator(timedelta(seconds=10), timedelta(seconds=1), 'base', operator)
+    ra.run()
+    InputStreamGenerator('base', incremental_event).start()
