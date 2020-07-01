@@ -56,3 +56,23 @@ class Max(Operator):
     def lower(self, agg):
         """The final value is simply the last running max."""
         return agg
+
+
+class Min(Operator):
+    """."""
+    NAME = 'MIN'
+
+    def __init__(self, min_over):
+        self.min_over = min_over
+
+    def lift(self, event):
+        """."""
+        return event[self.min_over]
+
+    def combine(self, agg1, agg2):
+        """."""
+        return min(agg1, agg2)
+
+    def lower(self, agg):
+        """The final value is simply the last running min."""
+        return agg

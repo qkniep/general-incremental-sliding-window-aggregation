@@ -9,7 +9,7 @@ import time
 
 from pubsub import pub
 
-from operators import Count, Max
+from operators import Min
 from ra import ReactiveAggregator
 
 
@@ -30,7 +30,7 @@ class InputStreamGenerator(Thread):
         """
         for event in self.generate_new_event():
             pub.sendMessage(self.topic, event=event)
-            time.sleep(0.1)
+            time.sleep(0.01)
 
 
 def random_event():
@@ -54,7 +54,7 @@ def incremental_event():
             'value': value,
             'hash': random.getrandbits(128),
             'category': random.randint(0, 10),
-        }, time.time())
+        }, time.time() + random.uniform(0, 0.5))
 
 
 def simple_callback(event):
@@ -63,30 +63,9 @@ def simple_callback(event):
 
 
 if __name__ == '__main__':
-    pub.subscribe(simple_callback, 'base')
+    # pub.subscribe(simple_callback, 'base')
     # operator = ArgMax(arg='id', max_over='value')
-    operator = Max(max_over='value')
-    ra = ReactiveAggregator(timedelta(seconds=10), timedelta(seconds=1), 'base', operator)
+    operator = Min('value')
+    ra = ReactiveAggregator(timedelta(seconds=2), timedelta(seconds=0.1), 'base', operator)
     ra.run()
-    # InputStreamGenerator('base', incremental_event).start()
-    pub.sendMessage('windowInsert', event={'value': 0})
-    pub.sendMessage('windowInsert', event={'value': 1})
-    pub.sendMessage('windowInsert', event={'value': 2})
-    pub.sendMessage('windowInsert', event={'value': 3})
-    pub.sendMessage('windowInsert', event={'value': 4})
-    pub.sendMessage('windowInsert', event={'value': 5})
-    pub.sendMessage('windowInsert', event={'value': 6})
-    pub.sendMessage('windowInsert', event={'value': 7})
-    pub.sendMessage('windowTrigger')
-    print(ra.tree.data)
-    pub.sendMessage('windowEvict', event={'value': 2})
-    pub.sendMessage('windowEvict', event={'value': 3})
-    pub.sendMessage('windowEvict', event={'value': 4})
-    pub.sendMessage('windowEvict', event={'value': 5})
-    pub.sendMessage('windowTrigger')
-    print(ra.tree.data)
-    pub.sendMessage('windowInsert', event={'value': 8})
-    pub.sendMessage('windowInsert', event={'value': 9})
-    pub.sendMessage('windowInsert', event={'value': 10})
-    pub.sendMessage('windowTrigger')
-    print(ra.tree.data)
+    InputStreamGenerator('base', incremental_event).start()
