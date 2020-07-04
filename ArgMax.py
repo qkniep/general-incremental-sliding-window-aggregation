@@ -28,7 +28,7 @@ class ArgMax(Operator):
       return agg1
     elif agg1['bla'] < agg2['bla']:
       return agg2
-    elif agg1['id'] > agg2['id']:
+    elif agg1['id'] < agg2['id']:
       return agg1
     else:
       return agg2
