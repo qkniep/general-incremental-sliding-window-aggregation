@@ -9,7 +9,7 @@ import time
 
 from pubsub import pub
 
-from operators import Min
+from operators import Count
 from ra import ReactiveAggregator
 
 
@@ -18,19 +18,23 @@ class InputStreamGenerator(Thread):
     These events are published into a pubsub topic, for other threads to subscribe to.
     """
 
+    EVENTS_PER_SECOND = 10000
+
     def __init__(self, topic, event_generator):
         """Creates a new event stream based on a publishing topic and event generator function."""
         super().__init__()
         self.topic = topic
         self.generate_new_event = event_generator
+        self.last_event = time.time()
+        self.starttime = time.time()
 
     def run(self):  # called by Thread.start()
-        """The thread runs for as long as the generator emits new events.
-        After publishing an event the thread sleeps for 100 ms.
-        """
+        """The thread runs for as long as the generator emits new events."""
         for event in self.generate_new_event():
-            pub.sendMessage(self.topic, event=event)
-            time.sleep(0.01)
+            current_time = time.time()
+            if current_time - self.last_event >= 1 / self.EVENTS_PER_SECOND:
+                self.last_event = time.time()
+                pub.sendMessage(self.topic, event=event)
 
 
 def random_event():
@@ -57,15 +61,15 @@ def incremental_event():
         }, time.time() + random.uniform(0, 0.5))
 
 
-def simple_callback(event):
-    """."""
+def echo_callback(event):
+    """Echoes an event to stdout."""
     print('[ECHO]:', event)
 
 
 if __name__ == '__main__':
-    # pub.subscribe(simple_callback, 'base')
+    # pub.subscribe(echo_callback, 'base')
     # operator = ArgMax(arg='id', max_over='value')
-    operator = Min('value')
-    ra = ReactiveAggregator(timedelta(seconds=2), timedelta(seconds=0.1), 'base', operator)
+    operator = Count()
+    ra = ReactiveAggregator(timedelta(seconds=20), timedelta(seconds=5), 'base', operator)
     ra.run()
     InputStreamGenerator('base', incremental_event).start()

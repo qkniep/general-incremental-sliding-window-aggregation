@@ -32,6 +32,7 @@ class SlidingTimeWindow(Thread):
         self.slide = slide
         self._window = PriorityQueue()
         self._last_trigger = datetime.now()
+        self._callbacks = {}
         pub.subscribe(self._on_incoming_event, in_stream)
 
     def run(self):  # called by Thread.start()
@@ -43,20 +44,28 @@ class SlidingTimeWindow(Thread):
         while True:
             current_time = datetime.now()
             if current_time - self._last_trigger > self.slide:
-                pub.sendMessage('windowTrigger')
+                # pub.sendMessage('windowTrigger')
+                self._callbacks['trigger']()
                 self._last_trigger = current_time
             try:
                 timestamp, event_id = self._window.get_nowait()
                 if current_time - datetime.fromtimestamp(timestamp) > self.size:
-                    pub.sendMessage('windowEvict', window_event_id=event_id)
+                    # pub.sendMessage('windowEvict', window_event_id=event_id)
+                    self._callbacks['evict'](event_id)
                 else:
                     self._window.put((timestamp, event_id))
             except queue.Empty:
                 pass
 
+    def subscribe(self, event_type, callback):
+        self._callbacks[event_type] = callback
+
     def _on_incoming_event(self, event):
         """Handles an event coming from the input stream."""
         event_tuple, timestamp = event
+        if datetime.now() - datetime.fromtimestamp(timestamp) > self.size:
+            return
         event_id = random.getrandbits(128)
-        pub.sendMessage('windowInsert', event_tuple=event_tuple, window_event_id=event_id)
+        # pub.sendMessage('windowInsert', event_tuple=event_tuple, window_event_id=event_id)
+        self._callbacks['insert'](event_tuple, event_id)
         self._window.put((timestamp, event_id))

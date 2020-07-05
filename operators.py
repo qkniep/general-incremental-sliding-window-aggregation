@@ -1,78 +1,78 @@
 # -*- coding: utf-8 -*-
-"""Implementations of different aggregation operators.
-
-These are implemented according to the Reactive Aggregator framework, i.e. they provide 3 methods:
-lift(event) -> agg -- Returns the partial aggregate corresponding to an event.
-combine(agg, agg) -> agg -- Returns the combination of two partial aggregates.
-lower(agg) -> value -- Returns the final value from a partial aggregate.
-"""
+"""Implementations of different aggregation operators."""
 
 
 class Operator:
-    """Abstract base class for aggregation operators."""
+    """Abstract base class for aggregation operators.
+
+    These are implemented according to the Reactive Aggregator framework
+    i.e. they provide 3 methods as described below.
+    """
 
     def lift(self, event):
-        """."""
+        """Should return the partial aggregate corresponding to an event."""
 
     def combine(self, agg1, agg2):
-        """."""
+        """Should return the combination of two partial aggregates."""
 
     def lower(self, agg):
-        """."""
+        """Should return the final value from a partial aggregate."""
 
 
 class Count(Operator):
     """Aggregate value is the number of events."""
+
     NAME = 'COUNT'
 
     def lift(self, event):
-        """A single event has a count of 1."""
         return 1
 
     def combine(self, agg1, agg2):
-        """Returns the aggregate of the two counts, i.e. their sum."""
         return agg1 + agg2
 
     def lower(self, agg):
-        """The final value is simply the last running count."""
         return agg
 
 
 class Max(Operator):
-    """."""
+    """Aggregate value is the maximum value of one specified key over events.
+
+    Attributes:
+        max_over -- The key we want to maximize.
+    """
+
     NAME = 'MAX'
 
     def __init__(self, max_over):
         self.max_over = max_over
 
     def lift(self, event):
-        """."""
         return event[self.max_over]
 
     def combine(self, agg1, agg2):
-        """."""
         return max(agg1, agg2)
 
     def lower(self, agg):
-        """The final value is simply the last running max."""
         return agg
 
 
 class Min(Operator):
-    """."""
+    """Aggregate value is the minimum value of one specified key over events.
+
+    Attributes:
+        min_over -- The key we want to minimize.
+    """
+
     NAME = 'MIN'
 
     def __init__(self, min_over):
         self.min_over = min_over
 
     def lift(self, event):
-        """."""
         return event[self.min_over]
 
     def combine(self, agg1, agg2):
-        """."""
         return min(agg1, agg2)
 
     def lower(self, agg):
-        """The final value is simply the last running min."""
         return agg

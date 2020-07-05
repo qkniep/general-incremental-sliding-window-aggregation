@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-"""."""
+"""Unit Testing for the FlatFAT data structure."""
 
 import unittest
 

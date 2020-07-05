@@ -7,6 +7,7 @@ class FlatFAT:
 
     def __init__(self, values, operator):
         """Create a new FlatFAT containing values, using operator to combine partial aggregates."""
+        self.capacity = len(values)
         self._operator = operator
         self._data = [None] * (len(values)*2-1)
         self.update(list(enumerate(values)))
@@ -58,10 +59,11 @@ class FlatFAT:
 
     def resize(self, front, new_capacity):
         """Resizes the data structure to a new capacity (number of possible leaves)."""
-        index_changes = [-1] * max(new_capacity, self.capacity())
+        index_changes = [-1] * max(new_capacity, self.capacity)
 
         leaves, indices = self._not_none_leaves(front)
         self._data = [None] * (new_capacity*2-1)
+        self.capacity = new_capacity
         self.update(list(enumerate(leaves)))
 
         for i, index in enumerate(indices):
@@ -71,22 +73,22 @@ class FlatFAT:
     def compact(self, front):
         """Fills holes of None values by shifting leaves to the left."""
         leaves, indices = self._not_none_leaves(front)
-        changes = [((front+i)%self.capacity(), v) for i, v in enumerate(leaves)]
-        changes += [((front+len(changes)+i) % self.capacity(), None)
-                    for i in range(self.capacity()-len(changes))]
+        changes = [((front+i)%self.capacity, v) for i, v in enumerate(leaves)]
+        changes += [((front+len(changes)+i) % self.capacity, None)
+                    for i in range(self.capacity-len(changes))]
         self.update(changes)
 
-        index_changes = [-1] * self.capacity()
+        index_changes = [-1] * self.capacity
         for i, index in enumerate(indices):
-            index_changes[index] = (front+i)%self.capacity()
+            index_changes[index] = (front+i)%self.capacity
         return index_changes
 
     def _not_none_leaves(self, front):
         """Returns: List of all leaves that are not None starting from front, wrapping indices."""
         leaves = []
         old_indices = []
-        for i in range(self.capacity()):
-            leaf = (front + i) % self.capacity()
+        for i in range(self.capacity):
+            leaf = (front + i) % self.capacity
             index = self._leaf(leaf)
             value = self._data[index]
             if value is not None:
@@ -114,13 +116,9 @@ class FlatFAT:
             return agg1
         return self._operator.combine(agg1, agg2)
 
-    def capacity(self):
-        """Returns: The number of leaves the tree structure can hold."""
-        return len(self._data) // 2 + 1
-
     def _leaf(self, leaf_pos):
         """Converts position in leaves array to index in the tree array."""
-        return len(self._data) // 2 + leaf_pos
+        return self.capacity - 1 + leaf_pos
 
 
 def _parent(i):

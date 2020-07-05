@@ -6,8 +6,6 @@ Based on: http://www.vldb.org/pvldb/vol8/p702-tangwongsan.pdf
 from threading import Lock
 from threading import Thread
 
-from pubsub import pub
-
 from flatfat import FlatFAT
 from window import SlidingTimeWindow
 
@@ -27,9 +25,9 @@ class ReactiveAggregator(Thread):
         """Creates new window with parameters: size=window_size, slide=window_slide."""
         super().__init__()
         self.window = SlidingTimeWindow(window_size, window_slide, in_stream)
-        pub.subscribe(self.on_insert, 'windowInsert')
-        pub.subscribe(self.on_evict, 'windowEvict')
-        pub.subscribe(self.on_trigger, 'windowTrigger')
+        self.window.subscribe('insert', self.on_insert)
+        self.window.subscribe('evict', self.on_evict)
+        self.window.subscribe('trigger', self.on_trigger)
 
         self.operator = operator
 
@@ -40,7 +38,7 @@ class ReactiveAggregator(Thread):
         self.buffer_back = 0
         self.num_tuples = 0
 
-        self.lock = Lock()  # TODO: think more about thread synchronization with pubsub
+        self.lock = Lock()
 
     def run(self):
         self.window.start()
@@ -54,7 +52,7 @@ class ReactiveAggregator(Thread):
             agg = self.operator.lift(event_tuple)
             self.tree_changes.append((self.buffer_back, agg))
             self.window_to_tree[window_event_id] = self.buffer_back
-            self.buffer_back = (self.buffer_back + 1) % self.tree.capacity()
+            self.buffer_back = (self.buffer_back + 1) % self.tree.capacity
             self.num_tuples += 1
 
     def on_evict(self, window_event_id):
@@ -62,16 +60,16 @@ class ReactiveAggregator(Thread):
         Shrinks the circular buffer if appropriate.
         """
         with self.lock:
-            if self.num_tuples < self.tree.capacity() // 4:
+            if self.num_tuples < self.tree.capacity // 4:
                 self._apply_tree_changes()
-                index_changes = self.tree.resize(self.buffer_front, self.tree.capacity() // 2)
+                index_changes = self.tree.resize(self.buffer_front, self.tree.capacity // 2)
                 self._update_indices(index_changes)
 
             index = self.window_to_tree[window_event_id]
             del self.window_to_tree[window_event_id]
             self.tree_changes.append((index, None))
             if index == self.buffer_front:
-                self.buffer_front = (self.buffer_front + 1) % self.tree.capacity()
+                self.buffer_front = (self.buffer_front + 1) % self.tree.capacity
             self.num_tuples -= 1
 
     def on_trigger(self):
@@ -92,12 +90,12 @@ class ReactiveAggregator(Thread):
             return  # buffer is not full
 
         self._apply_tree_changes()
-        if self.num_tuples <= self.tree.capacity() * 3 // 4:
+        if self.num_tuples <= self.tree.capacity * 3 // 4:
             index_changes = self.tree.compact(self.buffer_front)
         else:
-            index_changes = self.tree.resize(self.buffer_front, self.tree.capacity() * 2)
+            index_changes = self.tree.resize(self.buffer_front, self.tree.capacity * 2)
             self.buffer_front = 0
-        self.buffer_back = (self.buffer_front + self.num_tuples) % self.tree.capacity()
+        self.buffer_back = (self.buffer_front + self.num_tuples) % self.tree.capacity
         self._update_indices(index_changes)
 
     def _apply_tree_changes(self):
