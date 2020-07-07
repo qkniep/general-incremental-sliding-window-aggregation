@@ -76,3 +76,29 @@ class Min(Operator):
 
     def lower(self, agg):
         return agg
+
+
+class ArgMax(Operator):
+    """Aggregate is the argument which maximizes the value of some key over events.
+
+    Attributes:
+        arg -- The key we want from the maximum element.
+        max_over -- The key we want to maximize.
+    """
+
+    NAME = 'ARGMAX'
+
+    def __init__(self, arg, max_over):
+        self.arg = arg
+        self.max_over = max_over
+
+    def lift(self, event):
+        return {'arg': event[self.arg], 'value': event[self.max_over]}
+
+    def combine(self, agg1, agg2):
+        if agg2['value'] > agg1['value']:
+            return agg2
+        return agg1
+
+    def lower(self, agg):
+        return agg['arg']
