@@ -58,6 +58,7 @@ class SlidingTimeWindow(Thread):
                 pass
 
     def subscribe(self, event_type, callback):
+        """Subscribe a callback for some type of window events."""
         self._callbacks[event_type] = callback
 
     def _on_incoming_event(self, event):

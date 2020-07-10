@@ -11,7 +11,7 @@ from window import SlidingTimeWindow
 
 
 class ReactiveAggregator(Thread):
-    """
+    """The main class managing the aggregation process.
 
     Maintains a sliding window over the input stream,
     a FlatFAT data structure containing the partial aggregates.
@@ -37,6 +37,8 @@ class ReactiveAggregator(Thread):
         self.buffer_front = 0
         self.buffer_back = 0
         self.num_tuples = 0
+
+        self.time = 0
 
         self.lock = Lock()
 
@@ -77,7 +79,14 @@ class ReactiveAggregator(Thread):
         with self.lock:
             self._apply_tree_changes()
             agg = self.tree.aggregate(self.buffer_front, self.buffer_back)
-            print('[RA,%s]: %s' % (self.operator.NAME, self.operator.lower(agg)))
+            # print('[RA,%s]: %s' % (self.operator.NAME, self.operator.lower(agg)))
+            self.time += self.window.slide.total_seconds()
+            print('%s,%s,%s,%s' % (
+                self.time,
+                self.operator.lower(agg),
+                self.window.size.total_seconds(),
+                self.window.slide.total_seconds(),
+            ))
 
     def handle_full_buffer(self):
         """Checks whether the circular buffer is full and makes space if it is.
